@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profile — Privilege Escalation Demo</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+        rel="stylesheet" />
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #0a0c10;
+            --surface: #0f1117;
+            --card: #141620;
+            --border: #1e2230;
+            --accent: #3b82f6;
+            --accent2: #6366f1;
+            --red: #ef4444;
+            --green: #22c55e;
+            --yellow: #f59e0b;
+            --text: #e2e8f0;
+            --muted: #64748b;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background-image: linear-gradient(rgba(59, 130, 246, 0.03)1px, transparent 1px), linear-gradient(90deg, rgba(59, 130, 246, 0.03)1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(10, 12, 16, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 0 28px;
+            height: 56px;
+        }
+
+        .nav-logo {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .nav-logo span {
+            color: var(--red);
+        }
+
+        .nav-back {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--muted);
+            font-size: 12px;
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .nav-back:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .nav-spacer {
+            flex: 1;
+        }
+
+        .page {
+            position: relative;
+            z-index: 1;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        h1 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .page-sub {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 28px;
+        }
+
+        /* Fetch controls */
+        .fetch-panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 22px;
+            margin-bottom: 24px;
+        }
+
+        .fetch-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 14px;
+        }
+
+        .url-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 14px;
+            margin-bottom: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .url-bar .method {
+            color: var(--green);
+            font-weight: 700;
+            margin-right: 4px;
+        }
+
+        .url-bar .path {
+            color: var(--text);
+            flex: 1;
+        }
+
+        .url-bar input[type="number"] {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 6px;
+            padding: 2px 8px;
+            width: 50px;
+            color: #60a5fa;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            text-align: center;
+            outline: none;
+        }
+
+        .fetch-btn {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            transition: opacity 0.2s;
+        }
+
+        .fetch-btn:hover {
+            opacity: 0.88;
+        }
+
+        /* Profile result */
+        .profile-result {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 22px;
+            display: none;
+        }
+
+        .profile-result.danger {
+            border-color: rgba(239, 68, 68, 0.4);
+        }
+
+        .profile-result.safe {
+            border-color: rgba(34, 197, 94, 0.4);
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .result-status-badge {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--red);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .badge-safe {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--green);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .profile-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        @media(max-width:500px) {
+            .profile-fields {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .field-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+        }
+
+        .field-box.exposed {
+            border-color: rgba(239, 68, 68, 0.4);
+            background: rgba(239, 68, 68, 0.05);
+        }
+
+        .field-label {
+            font-size: 10px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 6px;
+        }
+
+        .field-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .field-value.red {
+            color: var(--red);
+        }
+
+        .raw-json {
+            margin-top: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--muted);
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .raw-label {
+            font-size: 10px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 8px;
+        }
+
+        .explanation {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px;
+            margin-top: 24px;
+        }
+
+        .exp-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .exp-item {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .exp-icon {
+            font-size: 16px;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav>
+        <div class="nav-logo">priv<span>·</span>esc demo</div>
+        <button class="nav-back" onclick="window.location.href='/dashboard.html'">← Dashboard</button>
+        <div class="nav-spacer"></div>
+        <span style="font-size:13px;color:var(--muted)">Profile — IDOR Demo</span>
+    </nav>
+
+    <div class="page">
+        <h1>User Profile</h1>
+        <p class="page-sub">This page demonstrates Horizontal Privilege Escalation (IDOR). Change the user ID to access
+            another user's profile.</p>
+
+        <div class="fetch-panel">
+            <div class="fetch-title">Fetch Profile — Change the ID to access any user</div>
+            <div class="url-bar">
+                <span class="method">GET</span>
+                <span class="path">/profile?id=</span>
+                <input type="number" id="target-id" value="3" min="1" max="3" />
+            </div>
+            <button class="fetch-btn" onclick="fetchProfile()">→ Fetch Profile</button>
+        </div>
+
+        <div class="profile-result" id="profile-result">
+            <div class="result-header">
+                <span class="result-status-badge" id="result-badge">...</span>
+                <span id="result-msg" style="font-size:13px;color:var(--muted)"></span>
+            </div>
+            <div class="profile-fields" id="profile-fields"></div>
+            <div class="raw-label" style="margin-top:16px">Raw Response</div>
+            <div class="raw-json" id="raw-json"></div>
+        </div>
+
+        <div class="explanation">
+            <div class="exp-title">How IDOR Works Here</div>
+            <div class="exp-item">
+                <span class="exp-icon">⚡</span>
+                <div><strong>Vulnerable Mode:</strong> The server fetches any user by ID without checking who's asking.
+                    Alice (id=2) can request id=3 and get Bob's full data — including his password.</div>
+            </div>
+            <div class="exp-item">
+                <span class="exp-icon">🛡</span>
+                <div><strong>Fixed Mode:</strong> The server checks <code>session.user.id === requested id</code>. If
+                    they don't match (and you're not admin), it returns <strong>403 Forbidden</strong>.</div>
+            </div>
+            <div class="exp-item">
+                <span class="exp-icon">📋</span>
+                <div><strong>Lesson:</strong> Always validate ownership server-side. Never trust the client to only send
+                    their own ID. URL parameters are trivially modified.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function fetchProfile() {
+            const id = document.getElementById('target-id').value;
+            const el = document.getElementById('profile-result');
+            el.style.display = 'block';
+
+            const res = await fetch(`/profile?id=${id}`);
+            const data = await res.json();
+
+            const badge = document.getElementById('result-badge');
+            const msg = document.getElementById('result-msg');
+            const fields = document.getElementById('profile-fields');
+            const rawJson = document.getElementById('raw-json');
+
+            if (res.ok) {
+                el.className = 'profile-result danger';
+                badge.textContent = `HTTP ${res.status} — ATTACK SUCCEEDED`;
+                badge.className = 'result-status-badge badge-danger';
+                msg.textContent = data.password
+                    ? `⚠ Password exposed: "${data.password}"`
+                    : '⚠ User data leaked — no ownership check performed';
+
+                fields.innerHTML = Object.entries(data).map(([k, v]) => {
+                    const isExposed = k === 'password' || k === '_demo_note';
+                    return `<div class="field-box ${isExposed ? 'exposed' : ''}">
+          <div class="field-label">${k}</div>
+          <div class="field-value ${isExposed ? 'red' : ''}">${v}</div>
+        </div>`;
+                }).join('');
+            } else {
+                el.className = 'profile-result safe';
+                badge.textContent = `HTTP ${res.status} — BLOCKED`;
+                badge.className = 'result-status-badge badge-safe';
+                msg.textContent = data.error || 'Access denied by the server';
+                fields.innerHTML = `<div class="field-box" style="grid-column:1/-1">
+        <div class="field-label">Server Response</div>
+        <div class="field-value" style="color:var(--green)">${data.error}</div>
+        ${data._demo_note ? `<div style="font-size:12px;color:var(--muted);margin-top:6px">${data._demo_note}</div>` : ''}
+      </div>`;
+            }
+
+            rawJson.textContent = JSON.stringify(data, null, 2);
+        }
+    </script>
+</body>
+
+</html>
