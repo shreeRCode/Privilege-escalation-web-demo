@@ -283,6 +283,28 @@ body {
   background: var(--blue-faint);
 }
 
+.sidebar-login-btn {
+  width: 100%;
+  padding: 9px 14px;
+  background: var(--blue-faint);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--blue);
+  font-family: var(--display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 12px;
+}
+
+.sidebar-login-btn:hover {
+  background: var(--blue);
+  color: #fff;
+  box-shadow: 0 0 16px var(--blue-glow);
+}
+
 .disclaimer {
   font-family: var(--mono);
   font-size: 9px;

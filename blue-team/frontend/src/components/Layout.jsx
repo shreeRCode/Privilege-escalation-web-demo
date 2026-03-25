@@ -55,7 +55,7 @@ export default function Layout() {
         </nav>
 
         <div className="sidebar-footer">
-          {user && (
+          {user ? (
             <div className="user-info">
               <div className="user-avatar">{user.username?.[0]?.toUpperCase()}</div>
               <div className="user-details">
@@ -64,6 +64,13 @@ export default function Layout() {
               </div>
               <button onClick={handleLogout} className="logout-btn" title="Logout">⏻</button>
             </div>
+          ) : (
+            <button
+              onClick={() => navigate("/login")}
+              className="sidebar-login-btn"
+            >
+              ⏻ LOGIN
+            </button>
           )}
           <div className="disclaimer">
             🛡️ Secure implementation. All attacks blocked.
