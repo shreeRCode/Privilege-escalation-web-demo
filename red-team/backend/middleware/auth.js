@@ -10,8 +10,8 @@
 
 const jwt = require("jsonwebtoken");
 
-// VULNERABILITY: Weak, hardcoded secret
-const JWT_SECRET = "secret123";
+// VULNERABILITY: Weak, hardcoded secret (or loaded from env for shared lab state)
+const JWT_SECRET = process.env.JWT_SECRET || "secret123";
 
 function generateToken(user) {
   // VULNERABILITY: Role embedded in token — attacker can forge role

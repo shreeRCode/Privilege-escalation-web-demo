@@ -8,6 +8,7 @@ import JWTForgePage from "./pages/JWTForgePage";
 import MassAssignPage from "./pages/MassAssignPage";
 import AdminPanelPage from "./pages/AdminPanelPage";
 import AttackLogPage from "./pages/AttackLogPage";
+import BattleDashboard from "./pages/BattleDashboard";
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
             <Route path="mass-assign" element={<MassAssignPage />} />
             <Route path="admin" element={<AdminPanelPage />} />
             <Route path="attack-log" element={<AttackLogPage />} />
+            <Route path="battle" element={<BattleDashboard />} />
           </Route>
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

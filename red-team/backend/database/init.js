@@ -64,6 +64,31 @@ async function initDB() {
         )
       `);
 
+      // Battle events table for agent persistence
+      database.run(`
+        CREATE TABLE IF NOT EXISTS battle_events (
+          id INTEGER PRIMARY KEY,
+          ts TEXT NOT NULL,
+          scenario_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          category TEXT NOT NULL,
+          steps TEXT,
+          red_status INTEGER,
+          red_success INTEGER DEFAULT 0,
+          blue_status INTEGER,
+          blue_success INTEGER DEFAULT 0,
+          attacker_point INTEGER DEFAULT 0,
+          defender_point INTEGER DEFAULT 0,
+          narration TEXT,
+          score_attacker INTEGER DEFAULT 0,
+          score_defender INTEGER DEFAULT 0,
+          score_total INTEGER DEFAULT 0,
+          category_breakdown TEXT,
+          latency_ms REAL DEFAULT 0,
+          event_json TEXT NOT NULL
+        )
+      `);
+
       // Seed users
       const salt = bcrypt.genSaltSync(10);
       const users = [

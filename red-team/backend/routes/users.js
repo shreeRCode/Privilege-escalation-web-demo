@@ -25,6 +25,21 @@ router.get("/", verifyToken, (req, res) => {
   db.all(`SELECT id, username, email, role, balance, ssn, credit_card, profile_data, created_at FROM users`, [], (err, users) => {
     if (err) return res.status(500).json({ error: err.message });
 
+    // Log an overexposure event if sensitive fields are present
+    const leaked = users.some((u) => u.ssn || u.credit_card);
+    if (leaked) {
+      logAttack({
+        io: req.io,
+        type: "OVEREXPOSED_FIELDS",
+        cveId: "OWASP-API2-2023",
+        attacker: req.user.username,
+        target: "user_list",
+        payload: { leakedFields: ["ssn", "credit_card"], http: { method: "GET", path: "/api/users", status: 200 } },
+        success: true,
+        details: "Sensitive fields were included in /api/users response",
+      });
+    }
+
     res.json({
       users,
       total: users.length,
@@ -66,7 +81,7 @@ router.get("/:id", verifyToken, (req, res) => {
           cveId: "OWASP-API1-2023",
           attacker: req.user.username,
           target: user.username,
-          payload: { accessedUserId: targetId, attackerUserId: requestingUserId },
+          payload: { accessedUserId: targetId, attackerUserId: requestingUserId, http: { method: "GET", path: `/api/users/${targetId}`, status: 200 } },
           success: true,
           details: `User '${req.user.username}' (ID:${requestingUserId}) accessed '${user.username}' (ID:${targetId}) profile including SSN and credit card`,
         });
@@ -135,7 +150,7 @@ router.put("/:id", verifyToken, (req, res) => {
         cveId: isIDOR ? "OWASP-API1-2023" : "OWASP-API3-2023",
         attacker: req.user.username,
         target: `user_id:${targetId}`,
-        payload: req.body,
+        payload: { ...req.body, http: { method: "PUT", path: `/api/users/${targetId}`, status: 200 } },
         success: true,
         details: `Profile update: IDOR=${isIDOR}, role_changed=${!!role}, balance_changed=${balance !== undefined}`,
       });
@@ -176,7 +191,7 @@ router.get("/:id/balance", verifyToken, (req, res) => {
         cveId: "OWASP-API1-2023",
         attacker: req.user.username,
         target: user.username,
-        payload: { targetUserId: targetId },
+        payload: { targetUserId: targetId, http: { method: "GET", path: `/api/users/${targetId}/balance`, status: 200 } },
         success: true,
         details: `Financial data exposed: ${user.username}'s balance $${user.balance}`,
       });

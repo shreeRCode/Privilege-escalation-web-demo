@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import api from "../utils/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -9,36 +9,34 @@ export default function AdminPanelPage() {
   const [activeAction, setActiveAction] = useState(null);
   const [promoteForm, setPromoteForm] = useState({ userId: "", newRole: "admin" });
   const [allUsers, setAllUsers] = useState([]);
+  const [agentStats, setAgentStats] = useState(null);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch("http://localhost:4000/agent/stats");
+        setAgentStats(await res.json());
+      } catch {}
+    };
+    fetchStats();
+    const timer = setInterval(fetchStats, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   const executeAttack = async (action) => {
     setLoading(true);
     setActiveAction(action);
     setResult(null);
     try {
-      let res;
-      switch (action) {
-        case "dashboard":
-          res = await api.get("/admin/dashboard");
-          if (res.data.allUsers) setAllUsers(res.data.allUsers);
-          break;
-        case "users":
-          res = await api.get("/admin/users");
-          if (res.data.users) setAllUsers(res.data.users);
-          break;
-        case "secret":
-          res = await api.get("/admin/secret");
-          break;
-        case "promote":
-          res = await api.post(`/admin/users/${promoteForm.userId}/promote`, {
-            newRole: promoteForm.newRole,
-          });
-          break;
-        default:
-          break;
-      }
-      setResult({ success: true, data: res.data });
+      const res = await fetch("http://localhost:4000/agent/fire", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenarioId: "chain_mass_assign_admin" })
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "Failed");
+      setResult({ success: true, data: data.event?.red?.bodyPreview ? JSON.parse(data.event.red.bodyPreview) : {} });
     } catch (err) {
-      setResult({ success: false, data: err.response?.data });
+      setResult({ success: false, data: { error: err.message } });
     } finally {
       setLoading(false);
     }
@@ -262,6 +260,22 @@ export default function AdminPanelPage() {
           {`bypasses all admin protections because the server trusts the token payload.`}
         </div>
       </div>
+
+      {/* Live Agent Stats */}
+      {agentStats && (
+        <div className="card">
+          <div className="card-title">⊛ LIVE AGENT STATS <span style={{ marginLeft: "auto", fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-faint)", fontWeight: 400 }}>AUTO-REFRESHES</span></div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+            <div className="stat-card"><div className="stat-value" style={{ color: "var(--red)" }}>{agentStats.totalFired || 0}</div><div className="stat-label">TOTAL ATTACKS FIRED</div></div>
+            {(agentStats.categories || []).filter(c => c.category && c.category.toLowerCase().includes('access')).map((c) => (
+              <div key={c.category} className="stat-card"><div className="stat-value" style={{ color: "var(--red)" }}>{c.red_succeeded || 0}</div><div className="stat-label">{c.category.toUpperCase()} SUCCEEDED</div></div>
+            ))}
+            {(agentStats.topAttacks || []).slice(0, 2).map((t) => (
+              <div key={t.category} className="stat-card"><div className="stat-value" style={{ color: "var(--amber)" }}>{t.red_succeeded || 0}/{t.fired || 0}</div><div className="stat-label">{t.category.toUpperCase()}</div></div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

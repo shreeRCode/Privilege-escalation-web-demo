@@ -30,7 +30,7 @@ router.get("/dashboard", verifyToken, requireRole("admin"), (req, res) => {
     cveId: "OWASP-API5-2023",
     attacker: req.user.username,
     target: "admin_dashboard",
-    payload: { tokenRole: req.user.role },
+    payload: { tokenRole: req.user.role, http: { method: "GET", path: "/api/admin/dashboard", status: 200 } },
     success: true,
     details: `Admin dashboard accessed by '${req.user.username}' with role '${req.user.role}' (may be forged JWT)`,
   });
@@ -104,7 +104,7 @@ router.post("/users/:id/promote", verifyToken, requireRole("admin"), (req, res) 
         cveId: "OWASP-API5-2023",
         attacker: req.user.username,
         target: targetUser.username,
-        payload: { oldRole: targetUser.role, newRole },
+        payload: { oldRole: targetUser.role, newRole, http: { method: "POST", path: `/api/admin/users/${targetId}/promote`, status: 200 } },
         success: true,
         details: `Role escalation: ${targetUser.username} from '${targetUser.role}' to '${newRole}'`,
       });
@@ -147,7 +147,7 @@ router.delete("/users/:id", verifyToken, requireRole("admin"), (req, res) => {
         cveId: "OWASP-API5-2023",
         attacker: req.user.username,
         target: user.username,
-        payload: { deletedUserId: targetId },
+        payload: { deletedUserId: targetId, http: { method: "DELETE", path: `/api/admin/users/${targetId}`, status: 200 } },
         success: true,
         details: `User '${user.username}' deleted by '${req.user.username}' via privilege escalation`,
       });
@@ -166,6 +166,16 @@ router.delete("/users/:id", verifyToken, requireRole("admin"), (req, res) => {
 // VULNERABILITY: Forced browsing — no additional auth beyond JWT role
 // =====================================================================
 router.get("/secret", verifyToken, requireRole("admin"), (req, res) => {
+  logAttack({
+    io: req.io,
+    type: "VERTICAL_ESCALATION",
+    cveId: "OWASP-API5-2023",
+    attacker: req.user.username,
+    target: "admin_secret",
+    payload: { http: { method: "GET", path: "/api/admin/secret", status: 200 } },
+    success: true,
+    details: "Forced browsing to /api/admin/secret",
+  });
   res.json({
     secretData: "SUPER_SECRET_API_KEY_12345",
     dbPassword: "admin_db_pass_2024",

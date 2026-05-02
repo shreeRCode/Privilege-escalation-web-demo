@@ -62,7 +62,7 @@ router.post("/register", (req, res) => {
           cveId: "OWASP-API3-2023",
           attacker: username,
           target: "registration_endpoint",
-          payload: { role, balance },
+          payload: { role, balance, http: { method: "POST", path: "/api/auth/register", status: 201 } },
           success: true,
           details: `User registered with elevated role: ${userRole}`,
         });
@@ -154,7 +154,7 @@ router.post("/forge-token", verifyToken, (req, res) => {
     cveId: "CVE-2022-21449",
     attacker: req.user.username,
     target: "jwt_middleware",
-    payload: { originalRole: req.user.role, forgedRole: targetRole },
+    payload: { originalRole: req.user.role, forgedRole: targetRole, http: { method: "POST", path: "/api/auth/forge-token", status: 200 } },
     success: true,
     details: `JWT forged from role '${req.user.role}' to '${targetRole}'`,
   });

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import api from "../utils/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -8,6 +8,21 @@ export default function JWTForgePage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [tokenApplied, setTokenApplied] = useState(false);
+  const [liveJwt, setLiveJwt] = useState([]);
+  const [liveJwtLoading, setLiveJwtLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLive = async () => {
+      try {
+        const res = await fetch("http://localhost:4000/agent/history?category=JWT&limit=5");
+        const data = await res.json();
+        setLiveJwt(data.events || []);
+      } catch {} finally { setLiveJwtLoading(false); }
+    };
+    fetchLive();
+    const timer = setInterval(fetchLive, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   const currentToken = localStorage.getItem("red_token");
   const decodeToken = (token) => {
@@ -44,10 +59,15 @@ export default function JWTForgePage() {
   const testAdminAccess = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/admin/dashboard");
-      setResult({ success: true, data: res.data, testedAdmin: true });
+      const res = await fetch("http://localhost:4000/agent/fire", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenarioId: "jwt_none_alg" })
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "Failed");
+      setResult({ success: true, data: data.event?.red?.bodyPreview ? JSON.parse(data.event.red.bodyPreview) : {}, testedAdmin: true });
     } catch (err) {
-      setResult({ success: false, data: err.response?.data, testedAdmin: true });
+      setResult({ success: false, data: { error: err.message }, testedAdmin: true });
     } finally {
       setLoading(false);
     }
@@ -239,6 +259,44 @@ function verifyToken(req, res, next) {
 // const dbUser = await db.get('SELECT role FROM users WHERE id = ?', [decoded.id]);
 // req.user = { ...decoded, role: dbUser.role };`}
         </div>
+      </div>
+
+      {/* ═══ LIVE JWT FORGERY ATTEMPTS ═══ */}
+      <div className="card">
+        <div className="card-title">
+          ⊗ LIVE JWT FORGERY ATTEMPTS
+          <span style={{ marginLeft: "auto", fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-faint)", fontWeight: 400 }}>AUTO-REFRESHES EVERY 30s</span>
+        </div>
+        {liveJwtLoading ? (
+          <div className="loading">Loading live JWT data...</div>
+        ) : liveJwt.length === 0 ? (
+          <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--text-faint)", padding: 16, textAlign: "center" }}>No JWT forgery attempts recorded yet</div>
+        ) : (
+          <div style={{ display: "grid", gap: 8 }}>
+            {liveJwt.map((ev) => (
+              <div key={ev.id} style={{ background: "var(--bg-3)", border: "1px solid var(--border-dim)", borderRadius: 8, padding: "10px 14px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, flexWrap: "wrap", gap: 8 }}>
+                  <span style={{ fontFamily: "var(--display)", fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{ev.name}</span>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <span className="badge" style={{ background: ev.red?.success ? "var(--red-faint)" : "rgba(0,255,136,0.06)", color: ev.red?.success ? "var(--red)" : "var(--green)", fontSize: 10 }}>RED {ev.red?.status}</span>
+                    <span className="badge" style={{ background: ev.blue?.success ? "var(--red-faint)" : "rgba(0,255,136,0.06)", color: ev.blue?.success ? "var(--red)" : "var(--green)", fontSize: 10 }}>BLUE {ev.blue?.status}</span>
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 6 }}>
+                  <div style={{ background: "var(--bg-2)", padding: "6px 10px", borderRadius: 4, fontFamily: "var(--mono)", fontSize: 10 }}>
+                    <span style={{ color: "var(--text-faint)" }}>ORIGINAL: </span><span style={{ color: "var(--text-dim)" }}>role: user</span>
+                  </div>
+                  <div style={{ background: "var(--red-faint)", padding: "6px 10px", borderRadius: 4, fontFamily: "var(--mono)", fontSize: 10 }}>
+                    <span style={{ color: "var(--text-faint)" }}>FORGED: </span><span style={{ color: "var(--red)" }}>role: admin</span>
+                  </div>
+                </div>
+                {ev.narration && typeof ev.narration === "object" && (
+                  <div style={{ fontFamily: "var(--sans)", fontSize: 11, color: "var(--text-dim)", lineHeight: 1.5 }}>{ev.narration.summary}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

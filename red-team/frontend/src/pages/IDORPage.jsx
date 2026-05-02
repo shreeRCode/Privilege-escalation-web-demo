@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import api from "../utils/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -14,16 +14,23 @@ export default function IDORPage() {
     setLoading(true);
     setResult(null);
     try {
-      const res = await api.get(`/users/${targetId}`);
-      setResult({ success: true, data: res.data });
+      const res = await fetch("http://localhost:4000/agent/fire", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenarioId: "idor_profile" })
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "Failed");
+      // Display the raw red team data from the battle event
+      setResult({ success: true, data: data.event?.red?.bodyPreview ? JSON.parse(data.event.red.bodyPreview) : {} });
     } catch (err) {
-      setResult({ success: false, data: err.response?.data });
+      setResult({ success: false, data: { error: err.message } });
     } finally {
       setLoading(false);
     }
   };
 
-  // IDOR: Read balance
+  // IDOR: Read balance (Actually we can use the same scenario or just standard API)
+  // To keep it simple, we'll leave fetchBalance as a direct API call unless we have a balance scenario.
   const fetchBalance = async () => {
     setLoading(true);
     setResult(null);
@@ -43,17 +50,37 @@ export default function IDORPage() {
     setLoading(true);
     setResult(null);
     try {
-      const payload = {};
-      if (updateFields.email) payload.email = updateFields.email;
-      if (updateFields.profile_data) payload.profile_data = { bio: updateFields.profile_data };
-      const res = await api.put(`/users/${targetId}`, payload);
-      setResult({ success: true, data: res.data });
+      // Trigger mass_assign_role for update tests to show the popup!
+      const res = await fetch("http://localhost:4000/agent/fire", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenarioId: "mass_assign_role" })
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || "Failed");
+      setResult({ success: true, data: data.event?.red?.bodyPreview ? JSON.parse(data.event.red.bodyPreview) : {} });
     } catch (err) {
-      setResult({ success: false, data: err.response?.data });
+      setResult({ success: false, data: { error: err.message } });
     } finally {
       setLoading(false);
     }
   };
+
+  // ─── Live IDOR Attempts from Agent ───
+  const [liveAttempts, setLiveAttempts] = useState([]);
+  const [liveLoading, setLiveLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLive = async () => {
+      try {
+        const res = await fetch("http://localhost:4000/agent/history?category=IDOR&limit=5");
+        const data = await res.json();
+        setLiveAttempts(data.events || []);
+      } catch {} finally { setLiveLoading(false); }
+    };
+    fetchLive();
+    const timer = setInterval(fetchLive, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   const isOwnId = parseInt(targetId) === user?.id;
 
@@ -293,6 +320,36 @@ router.get('/:id', verifyToken, (req, res) => {
   });
 });`}
         </div>
+      </div>
+
+      {/* ═══ LIVE IDOR ATTEMPTS FROM AGENT ═══ */}
+      <div className="card">
+        <div className="card-title">
+          ⊕ LIVE IDOR ATTEMPTS
+          <span style={{ marginLeft: "auto", fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-faint)", fontWeight: 400 }}>AUTO-REFRESHES EVERY 30s</span>
+        </div>
+        {liveLoading ? (
+          <div className="loading">Loading live IDOR data...</div>
+        ) : liveAttempts.length === 0 ? (
+          <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--text-faint)", padding: 16, textAlign: "center" }}>No IDOR attempts recorded yet</div>
+        ) : (
+          <div style={{ display: "grid", gap: 8 }}>
+            {liveAttempts.map((ev) => (
+              <div key={ev.id} style={{ background: "var(--bg-3)", border: "1px solid var(--border-dim)", borderRadius: 8, padding: "10px 14px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, flexWrap: "wrap", gap: 8 }}>
+                  <span style={{ fontFamily: "var(--display)", fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{ev.name}</span>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <span className="badge" style={{ background: ev.red?.success ? "var(--red-faint)" : "rgba(0,255,136,0.06)", color: ev.red?.success ? "var(--red)" : "var(--green)", fontSize: 10 }}>RED {ev.red?.status}</span>
+                    <span className="badge" style={{ background: ev.blue?.success ? "var(--red-faint)" : "rgba(0,255,136,0.06)", color: ev.blue?.success ? "var(--red)" : "var(--green)", fontSize: 10 }}>BLUE {ev.blue?.status}</span>
+                  </div>
+                </div>
+                {ev.narration && typeof ev.narration === "object" && (
+                  <div style={{ fontFamily: "var(--sans)", fontSize: 11, color: "var(--text-dim)", lineHeight: 1.5 }}>{ev.narration.summary}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

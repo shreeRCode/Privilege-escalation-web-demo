@@ -34,6 +34,26 @@ export default function AttackLogPage() {
       }
     });
 
+    // Also listen for battle:event from the smart agent
+    socketRef.current.on("battle:event", (ev) => {
+      if (live) {
+        setLogs((prev) => [
+          {
+            id: ev.id || Date.now(),
+            attack_type: ev.scenarioId || ev.name,
+            attacker_user: "agent",
+            target_user: ev.steps?.[0]?.url || "—",
+            success: ev.red?.success ? 1 : 0,
+            timestamp: ev.ts,
+            details: ev.narration?.summary || ev.name,
+            isNew: true,
+            isBattleEvent: true,
+          },
+          ...prev,
+        ].slice(0, 100));
+      }
+    });
+
     return () => {
       socketRef.current?.disconnect();
     };
