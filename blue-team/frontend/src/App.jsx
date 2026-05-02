@@ -8,6 +8,7 @@ import JWTDefensePage from "./pages/JWTDefensePage";
 import MassAssignDefensePage from "./pages/MassAssignDefensePage";
 import AdminDefensePage from "./pages/AdminDefensePage";
 import DefenseLogPage from "./pages/DefenseLogPage";
+import BattleDashboard from "./pages/BattleDashboard";
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
             <Route path="mass-assign-defense" element={<MassAssignDefensePage />} />
             <Route path="admin-defense" element={<AdminDefensePage />} />
             <Route path="defense-log" element={<DefenseLogPage />} />
+            <Route path="battle" element={<BattleDashboard />} />
           </Route>
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

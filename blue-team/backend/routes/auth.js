@@ -61,7 +61,7 @@ router.post("/register", (req, res) => {
       threat: "OWASP-API3-2023",
       user: username,
       target: "registration_endpoint",
-      payload: { attemptedRole: req.body.role, attemptedBalance: req.body.balance },
+      payload: { attemptedRole: req.body.role, attemptedBalance: req.body.balance, http: { method: "POST", path: "/api/auth/register", status: 201 } },
       blocked: true,
       details: `Mass assignment attempt blocked — tried to set role:'${req.body.role}', balance:${req.body.balance}`,
     });

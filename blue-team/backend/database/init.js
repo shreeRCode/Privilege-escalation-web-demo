@@ -21,10 +21,13 @@ function getDB() {
 }
 
 async function initDB() {
+  console.log("Starting DB init...");
   return new Promise((resolve, reject) => {
     const database = getDB();
+    console.log("DB instance retrieved.");
 
     database.serialize(() => {
+      console.log("Inside DB serialize...");
       // Users table
       database.run(`
         CREATE TABLE IF NOT EXISTS users (

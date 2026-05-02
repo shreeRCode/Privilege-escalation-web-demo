@@ -31,6 +31,34 @@ export default function DefenseLogPage() {
       }
     });
 
+    // Also listen for blue:blocked events from defense monitor
+    socketRef.current.on("blue:blocked", (ev) => {
+      if (live) {
+        setLogs((prev) => [
+          {
+            id: Date.now(),
+            type: ev.type,
+            user: ev.user || "agent",
+            target: ev.endpoint,
+            blocked: true,
+            details: ev.reason,
+            timestamp: ev.ts,
+            isNew: true,
+            isBlockedEvent: true,
+          },
+          ...prev,
+        ].slice(0, 100));
+      }
+    });
+
+    // Fetch defense stats from the dedicated endpoint
+    fetch("http://localhost:5000/defense/stats")
+      .then(r => r.json())
+      .then(data => {
+        if (data.byReason) setStats(data.byReason);
+      })
+      .catch(() => {});
+
     return () => {
       socketRef.current?.disconnect();
     };

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import api from "../utils/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -8,8 +8,22 @@ export default function IDORDefensePage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
-
   const [updateFields, setUpdateFields] = useState({ email: "", profile_data: "" });
+  const [liveBlocked, setLiveBlocked] = useState([]);
+  const [liveLoading, setLiveLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLive = async () => {
+      try {
+        const res = await fetch("http://localhost:4000/agent/history?category=IDOR&limit=5");
+        const data = await res.json();
+        setLiveBlocked(data.events || []);
+      } catch {} finally { setLiveLoading(false); }
+    };
+    fetchLive();
+    const timer = setInterval(fetchLive, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   const fetchProfile = async () => {
     setLoading(true);
@@ -259,6 +273,35 @@ router.get('/:id', verifyToken, (req, res) => {
   );
 });`}
         </div>
+      </div>
+
+      {/* ═══ LIVE BLOCKED IDOR ATTEMPTS ═══ */}
+      <div className="card">
+        <div className="card-title">
+          🛡️ LIVE IDOR BLOCKED ATTEMPTS
+          <span style={{ marginLeft: "auto", fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-faint)", fontWeight: 400 }}>FROM AGENT</span>
+        </div>
+        {liveLoading ? (
+          <div className="loading">Loading...</div>
+        ) : liveBlocked.length === 0 ? (
+          <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--text-faint)", padding: 16, textAlign: "center" }}>No IDOR attempts recorded yet</div>
+        ) : (
+          <div style={{ display: "grid", gap: 8 }}>
+            {liveBlocked.map((ev) => (
+              <div key={ev.id} style={{ background: "var(--bg-3)", border: "1px solid var(--border-dim)", borderRadius: 8, padding: "10px 14px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, gap: 8 }}>
+                  <span style={{ fontFamily: "var(--display)", fontSize: 13, fontWeight: 600, color: "var(--text)" }}>{ev.name}</span>
+                  <span className="badge" style={{ background: ev.blue?.success ? "rgba(255,170,0,0.06)" : "rgba(0,255,136,0.06)", color: ev.blue?.success ? "var(--amber)" : "var(--green)", fontSize: 10 }}>
+                    BLUE {ev.blue?.success ? "BYPASSED" : "BLOCKED"}
+                  </span>
+                </div>
+                {ev.narration && typeof ev.narration === "object" && (
+                  <div style={{ fontFamily: "var(--sans)", fontSize: 11, color: "var(--text-dim)", lineHeight: 1.5 }}>{ev.narration.blueExplanation}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

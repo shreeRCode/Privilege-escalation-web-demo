@@ -29,6 +29,20 @@ router.get("/", verifyToken, (req, res) => {
   db.all(`SELECT ${fields} FROM users`, [], (err, users) => {
     if (err) return res.status(500).json({ error: "Failed to fetch users" });
 
+    // Defense event: sensitive fields are filtered for non-admin users
+    if (req.user.role !== "admin") {
+      logDefense({
+        io: req.io,
+        type: "OVEREXPOSED_FIELDS_BLOCKED",
+        threat: "OWASP-API2-2023",
+        user: req.user.username,
+        target: "user_list",
+        payload: { filteredFields: ["ssn", "credit_card"], http: { method: "GET", path: "/api/users", status: 200 } },
+        blocked: true,
+        details: "Sensitive fields filtered from /api/users response for non-admin",
+      });
+    }
+
     res.json({
       users,
       total: users.length,
@@ -54,7 +68,7 @@ router.get("/:id", verifyToken, (req, res) => {
       threat: "OWASP-API1-2023",
       user: req.user.username,
       target: `user_id:${targetId}`,
-      payload: { accessedUserId: targetId, attackerUserId: requestingUserId },
+      payload: { accessedUserId: targetId, attackerUserId: requestingUserId, http: { method: "GET", path: `/api/users/${targetId}`, status: 403 } },
       blocked: true,
       details: `IDOR attempt blocked: '${req.user.username}' (ID:${requestingUserId}) tried to access user ID:${targetId}`,
     });
@@ -102,7 +116,7 @@ router.put("/:id", verifyToken, (req, res) => {
       threat: "OWASP-API1-2023",
       user: req.user.username,
       target: `user_id:${targetId}`,
-      payload: req.body,
+      payload: { ...req.body, http: { method: "PUT", path: `/api/users/${targetId}`, status: 403 } },
       blocked: true,
       details: `IDOR update blocked: '${req.user.username}' tried to modify user ID:${targetId}`,
     });
@@ -125,7 +139,7 @@ router.put("/:id", verifyToken, (req, res) => {
       threat: "OWASP-API3-2023",
       user: req.user.username,
       target: `user_id:${targetId}`,
-      payload: { attemptedRole: req.body.role, attemptedBalance: req.body.balance },
+      payload: { attemptedRole: req.body.role, attemptedBalance: req.body.balance, http: { method: "PUT", path: `/api/users/${targetId}`, status: 200 } },
       blocked: true,
       details: `Mass assignment on update blocked — tried to set role/balance/ssn/credit_card`,
     });
@@ -181,7 +195,7 @@ router.get("/:id/balance", verifyToken, (req, res) => {
       threat: "OWASP-API1-2023",
       user: req.user.username,
       target: `user_id:${targetId}`,
-      payload: { targetUserId: targetId },
+      payload: { targetUserId: targetId, http: { method: "GET", path: `/api/users/${targetId}/balance`, status: 403 } },
       blocked: true,
       details: `Financial IDOR blocked: '${req.user.username}' tried to access user ID:${targetId}'s balance`,
     });

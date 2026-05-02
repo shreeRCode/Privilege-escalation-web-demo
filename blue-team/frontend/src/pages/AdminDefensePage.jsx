@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import api from "../utils/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -8,6 +8,19 @@ export default function AdminDefensePage() {
   const [loading, setLoading] = useState(false);
   const [activeAction, setActiveAction] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
+  const [agentStats, setAgentStats] = useState(null);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch("http://localhost:4000/agent/stats");
+        setAgentStats(await res.json());
+      } catch {}
+    };
+    fetchStats();
+    const timer = setInterval(fetchStats, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   const executeTest = async (action) => {
     setLoading(true);
@@ -188,6 +201,19 @@ function verifyToken(req, res, next) {
 // ✅ FIX: User listing excludes SSN, credit_card, password hash`}
         </div>
       </div>
+
+      {/* Live Agent Stats */}
+      {agentStats && (
+        <div className="card">
+          <div className="card-title">🛡️ LIVE DEFENSE STATS <span style={{ marginLeft: "auto", fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-faint)", fontWeight: 400 }}>AUTO-REFRESHES</span></div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+            <div className="stat-card"><div className="stat-value" style={{ color: "var(--green)" }}>{agentStats.totalFired || 0}</div><div className="stat-label">TOTAL ATTACKS OBSERVED</div></div>
+            {(agentStats.categories || []).slice(0, 2).map((c) => (
+              <div key={c.category} className="stat-card"><div className="stat-value" style={{ color: "var(--green)" }}>{c.blue_blocked || 0}/{c.fired || 0}</div><div className="stat-label">{c.category.toUpperCase()} BLOCKED</div></div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -11,9 +11,10 @@
 
 const jwt = require("jsonwebtoken");
 const { getDB } = require("../database/init");
+const { logDefense } = require("./securityLogger");
 
-// FIX: Strong secret (in production, use process.env.JWT_SECRET)
-const JWT_SECRET = "b1u3_t34m_$tr0ng_S3cr3t!_K3y_2024_x9Qm7pLw";
+// FIX: Strong secret loaded from process.env.JWT_SECRET
+const JWT_SECRET = process.env.JWT_SECRET || "b1u3_t34m_$tr0ng_S3cr3t!_K3y_2024_x9Qm7pLw";
 
 function generateToken(user) {
   // FIX: Only embed user ID and username — role is NOT in token
@@ -78,6 +79,20 @@ function requireRole(role) {
     if (userLevel >= requiredLevel) {
       next();
     } else {
+      // Audit/log blocked admin access attempts
+      try {
+        logDefense({
+          io: req.io,
+          type: "ADMIN_ACCESS_BLOCKED",
+          threat: "OWASP-API5-2023",
+          user: req.user.username,
+          target: "admin_routes",
+          payload: { requiredRole: role, userRole: req.user.role, http: { method: req.method, path: req.originalUrl, status: 403 } },
+          blocked: true,
+          details: `Blocked access: required '${role}', had '${req.user.role}'`,
+        });
+      } catch {}
+
       res.status(403).json({
         error: "Insufficient privileges",
         message: "Your account does not have the required access level",

@@ -15,7 +15,7 @@ function logDefense({ io, type, threat, user, target, payload, blocked, details 
     function (err) {
       if (err) console.error("Defense log error:", err);
 
-      // Emit to dashboard via WebSocket
+      // Emit to dashboard via WebSocket (existing event)
       if (io) {
         io.emit("defense_event", {
           id: this?.lastID,
@@ -28,6 +28,20 @@ function logDefense({ io, type, threat, user, target, payload, blocked, details 
           details,
           timestamp: new Date().toISOString(),
         });
+
+        // Emit blue:blocked event for the defense monitor
+        if (blocked) {
+          const endpoint = payload?.http?.path || target || "unknown";
+          const reason = type.replace(/_/g, " ").toLowerCase();
+          io.emit("blue:blocked", {
+            type,
+            endpoint,
+            reason: details || reason,
+            ts: new Date().toISOString(),
+            user: user || "anonymous",
+            threat: threat || null,
+          });
+        }
       }
     }
   );
