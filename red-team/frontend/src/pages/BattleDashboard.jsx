@@ -28,6 +28,7 @@ export default function BattleDashboard() {
   const [events, setEvents] = useState([]);
   const [score, setScore] = useState(null);
   const [stats, setStats] = useState(null);
+  const [privMetrics, setPrivMetrics] = useState(null);
   const [running, setRunning] = useState(false);
   const [intervalMs, setIntervalMs] = useState(10000);
   const [loading, setLoading] = useState(true);
@@ -53,22 +54,35 @@ export default function BattleDashboard() {
     };
   }, [score]);
 
+  const fetchPrivMetrics = useCallback(async () => {
+    try {
+      const res = await fetch(`${AGENT_BASE}/agent/metrics`);
+      const data = await res.json();
+      setPrivMetrics(data);
+    } catch {
+      setPrivMetrics(null);
+    }
+  }, []);
+
   const hydrate = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [stateRes, statsRes] = await Promise.all([
+      const [stateRes, statsRes, metricsRes] = await Promise.all([
         fetch(`${AGENT_BASE}/agent/state`),
         fetch(`${AGENT_BASE}/agent/stats`),
+        fetch(`${AGENT_BASE}/agent/metrics`),
       ]);
       const state = await stateRes.json();
       const statsData = await statsRes.json();
+      const metricData = await metricsRes.json();
       setScore(state.score || { attacker: 0, defender: 0, total: 0 });
       setEvents((state.history || []).slice(0, 30));
       setRunning(!!state.running);
       setIntervalMs(state.intervalMs || 10000);
       if (state.categoryBreakdown) setCatBreakdown(state.categoryBreakdown);
       setStats(statsData);
+      setPrivMetrics(metricData);
     } catch (err) {
       setError("Failed to connect to agent server");
     } finally {
@@ -85,6 +99,7 @@ export default function BattleDashboard() {
       setEvents((prev) => [ev, ...prev].slice(0, 30));
       if (ev?.score) setScore(ev.score);
       if (ev?.categoryBreakdown) setCatBreakdown(ev.categoryBreakdown);
+      fetchPrivMetrics();
       setLatestPopup(ev);
       setTimeout(() => {
         setLatestPopup((current) => current?.id === ev.id ? null : current);
@@ -96,7 +111,7 @@ export default function BattleDashboard() {
     });
 
     return () => sock.disconnect();
-  }, [hydrate]);
+  }, [hydrate, fetchPrivMetrics]);
 
   const setSpeed = async (ms) => {
     try {
@@ -235,6 +250,76 @@ export default function BattleDashboard() {
         <div className="stat-card"><div className="stat-value" style={{ color: "var(--red)" }}>{exploitsSucceeded}</div><div className="stat-label">EXPLOITS SUCCEEDED (RED)</div></div>
         <div className="stat-card"><div className="stat-value" style={{ color: "var(--green)" }}>{attacksBlocked}</div><div className="stat-label">ATTACKS BLOCKED (BLUE)</div></div>
         <div className="stat-card"><div className="stat-value" style={{ color: blockRateColor(blueBlockRate), fontSize: 32 }}>{blueBlockRate}%</div><div className="stat-label">BLUE BLOCK RATE</div></div>
+      </div>
+
+      {/* PrivPath Research Metrics */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-title">
+          PRIVPATH METRICS
+          <span style={{ marginLeft: "auto", fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-faint)", fontWeight: 400 }}>
+            ASR / BR / APR / TTD
+          </span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(120px, 1fr))", gap: 12, marginBottom: 16 }}>
+          <div className="stat-card" style={{ padding: 14 }}>
+            <div className="stat-value" style={{ color: "var(--red)", fontSize: 28 }}>{privMetrics?.metrics?.attackSuccessRatePct ?? 0}%</div>
+            <div className="stat-label">ATTACK SUCCESS RATE</div>
+          </div>
+          <div className="stat-card" style={{ padding: 14 }}>
+            <div className="stat-value" style={{ color: "var(--green)", fontSize: 28 }}>{privMetrics?.metrics?.blockRatePct ?? 0}%</div>
+            <div className="stat-label">BLOCK RATE</div>
+          </div>
+          <div className="stat-card" style={{ padding: 14 }}>
+            <div className="stat-value" style={{ color: "var(--amber)", fontSize: 28 }}>{privMetrics?.metrics?.attackPathReductionPct ?? 0}%</div>
+            <div className="stat-label">ATTACK-PATH REDUCTION</div>
+          </div>
+          <div className="stat-card" style={{ padding: 14 }}>
+            <div className="stat-value" style={{ color: "var(--text)", fontSize: 28 }}>{privMetrics?.metrics?.avgTtdMs ?? 0}<span style={{ fontSize: 12 }}>ms</span></div>
+            <div className="stat-label">AVG TIME TO DETECT</div>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16 }}>
+          <div>
+            <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-faint)", letterSpacing: 1.5, marginBottom: 8 }}>
+              DEFENSE CONTROL EFFECTIVENESS
+            </div>
+            <div style={{ display: "grid", gap: 6 }}>
+              {Object.entries(privMetrics?.byControl || {}).slice(0, 6).map(([control, data]) => (
+                <div key={control} style={{ display: "grid", gridTemplateColumns: "1fr 64px 64px 64px", gap: 8, alignItems: "center", fontFamily: "var(--mono)", fontSize: 10, padding: "7px 10px", background: "var(--bg-3)", border: "1px solid var(--border-dim)", borderRadius: 6 }}>
+                  <span style={{ color: "var(--text)", textTransform: "uppercase" }}>{control.replaceAll("_", " ")}</span>
+                  <span style={{ color: "var(--red)" }}>ASR {data.attackSuccessRatePct}%</span>
+                  <span style={{ color: "var(--green)" }}>BR {data.blockRatePct}%</span>
+                  <span style={{ color: "var(--amber)" }}>APR {data.attackPathReductionPct}%</span>
+                </div>
+              ))}
+              {Object.keys(privMetrics?.byControl || {}).length === 0 && (
+                <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--text-faint)", padding: 12, background: "var(--bg-3)", borderRadius: 6 }}>
+                  Run or fire scenarios to populate reproducible PrivPath metrics.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--text-faint)", letterSpacing: 1.5, marginBottom: 8 }}>
+              ADAPTIVE ATTACK DISTRIBUTION
+            </div>
+            <div style={{ display: "grid", gap: 6 }}>
+              {Object.entries(privMetrics?.attackDistribution || {}).slice(0, 6).map(([scenario, count]) => (
+                <div key={scenario} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontFamily: "var(--mono)", fontSize: 10, padding: "7px 10px", background: "var(--bg-3)", border: "1px solid var(--border-dim)", borderRadius: 6 }}>
+                  <span style={{ color: "var(--text)", textTransform: "uppercase" }}>{scenario.replaceAll("_", " ")}</span>
+                  <span style={{ color: "var(--red)" }}>{count}</span>
+                </div>
+              ))}
+              {Object.keys(privMetrics?.attackDistribution || {}).length === 0 && (
+                <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--text-faint)", padding: 12, background: "var(--bg-3)", borderRadius: 6 }}>
+                  No agent distribution yet.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Attacker vs Defender Bar */}
