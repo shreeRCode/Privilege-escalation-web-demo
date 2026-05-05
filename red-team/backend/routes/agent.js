@@ -61,6 +61,16 @@ function createAgentRouter(agent) {
     }
   });
 
+  // GET /agent/metrics - PrivPath research metrics (ASR, BR, APR, TTD)
+  router.get("/metrics", async (req, res) => {
+    try {
+      const metrics = await agent.getPrivPathMetrics();
+      res.json(metrics);
+    } catch (err) {
+      res.status(500).json({ error: err.message || "Failed to fetch PrivPath metrics" });
+    }
+  });
+
   return router;
 }
 

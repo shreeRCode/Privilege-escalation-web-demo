@@ -9,7 +9,7 @@ const NAV_ITEMS = [
   { path: "/mass-assign-defense", label: "Mass Assignment", icon: "⊘", badge: "OWASP A03" },
   { path: "/admin-defense", label: "Admin Defense", icon: "⊛", badge: "OWASP A05" },
   { path: "/defense-log", label: "Defense Log", icon: "⊜" },
-  { path: "/battle", label: "Live Battle", icon: "⚔", badge: "LIVE" },
+  { path: "/battle", label: "Auto Battle", icon: "⚔", badge: "AGENT" },
 ];
 
 export default function Layout() {

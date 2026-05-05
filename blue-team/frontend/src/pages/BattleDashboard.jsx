@@ -167,10 +167,13 @@ export default function BattleDashboard() {
       <div className="page-header">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
-            <div className="page-title">🛡️ DEFENSE <span>MONITOR</span></div>
-            <div className="page-subtitle">DUAL-SOURCE INTELLIGENCE — BATTLE + DEFENSE FEEDS</div>
+            <div className="page-title">🛡️ AUTO <span>DEFENSE</span></div>
+            <div className="page-subtitle">AGENT ALICE — BLUE API DEFENSE VIEW</div>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <span className="badge" style={{ background: "rgba(34,102,255,0.08)", border: "1px solid rgba(34,102,255,0.25)", color: "var(--blue)", fontSize: 10 }}>
+              WATCHING AGENT ALICE
+            </span>
             <select className="form-select" value={intervalMs} onChange={(e) => setSpeed(Number(e.target.value))} style={{ fontSize: 11, padding: "6px 10px" }}>
               <option value={120000}>2 min</option>
               <option value={60000}>1 min</option>
@@ -179,7 +182,7 @@ export default function BattleDashboard() {
             </select>
             {speedFlash && <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--green)", animation: "fadeOut 1.2s ease forwards" }}>✓ Updated</span>}
             <button className={running ? "btn btn-outline" : "btn btn-blue"} onClick={toggleRunning} style={{ fontSize: 11 }}>
-              {running ? "⏸ PAUSE" : "▶ RESUME"}
+              {running ? "⏸ STOP AGENT" : "▶ START AGENT"}
             </button>
           </div>
         </div>
@@ -227,8 +230,8 @@ export default function BattleDashboard() {
 
       {/* Score Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(140px, 1fr))", gap: 16, marginBottom: 24 }}>
-        <div className="stat-card"><div className="stat-value" style={{ color: "var(--green)" }}>{attacksBlocked}</div><div className="stat-label">ATTACKS INTERCEPTED</div></div>
-        <div className="stat-card"><div className="stat-value" style={{ color: "var(--cyan)" }}>{defenseStats?.totalBlocked || attacksBlocked}</div><div className="stat-label">THREATS NEUTRALIZED</div></div>
+        <div className="stat-card"><div className="stat-value" style={{ color: "var(--green)" }}>{attacksBlocked}</div><div className="stat-label">BLUE API BLOCKED</div></div>
+        <div className="stat-card"><div className="stat-value" style={{ color: "var(--cyan)" }}>{defenseStats?.totalBlocked || attacksBlocked}</div><div className="stat-label">DEFENSE LOG EVENTS</div></div>
         <div className="stat-card"><div className="stat-value" style={{ color: blockRate >= 70 ? "var(--green)" : "var(--amber)", fontSize: 32 }}>{blockRate}%</div><div className="stat-label">BLOCK RATE</div></div>
         <div className="stat-card"><div className="stat-value" style={{ color: "var(--text)" }}>{avgLatency || "—"}<span style={{ fontSize: 14 }}>ms</span></div><div className="stat-label">AVG BLOCK LATENCY</div></div>
       </div>
@@ -296,7 +299,7 @@ export default function BattleDashboard() {
         {events.length === 0 ? (
           <div style={{ textAlign: "center", padding: "40px 20px" }}>
             <div style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "var(--blue)", animation: "bluePulse 1.4s ease-in-out infinite", marginRight: 8 }} />
-            <span style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text-faint)" }}>{running ? "Monitoring..." : "AGENT PAUSED"}</span>
+            <span style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text-faint)" }}>{running ? "WATCHING AGENT ALICE" : "AGENT STOPPED"}</span>
           </div>
         ) : (
           <div style={{ display: "grid", gap: 10 }}>

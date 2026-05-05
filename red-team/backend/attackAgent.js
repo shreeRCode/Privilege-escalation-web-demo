@@ -192,17 +192,38 @@ const CHAINED_SCENARIOS = [
 
 const ALL_SCENARIOS = [...SINGLE_SCENARIOS, ...CHAINED_SCENARIOS];
 
+const SCENARIO_CONTROLS = {
+  idor_profile: ["ownership_checks"],
+  mass_assign_role: ["field_whitelisting", "database_role_authorization"],
+  jwt_none_alg: ["hs256_enforcement", "database_role_authorization"],
+  weak_secret_resign: ["strong_jwt_secret", "database_role_authorization"],
+  overexposed_fields: ["response_field_filtering"],
+  chain_recon_escalate: ["ownership_checks", "response_field_filtering"],
+  chain_bruteforce_token: ["rate_limiting", "hs256_enforcement"],
+  chain_mass_assign_admin: ["field_whitelisting", "database_role_authorization"],
+};
+
+function deriveTtdMs(steps = []) {
+  const firstBlocked = steps.find((step) => step?.blue && step.blue.success === false);
+  return firstBlocked?.blue?.latencyMs || 0;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    HELPERS
    ═══════════════════════════════════════════════════════════════ */
 function extract(settled, forceSuccess, startTime) {
   const isOk = settled.status === 'fulfilled';
+  const reached = isOk || !!settled.reason?.response;
   const status = isOk ? settled.value?.status : (settled.reason?.response?.status || 500);
   const rawBody = isOk ? settled.value?.data : (settled.reason?.response?.data || {});
   const bodyPreview = JSON.stringify(rawBody).slice(0, 200);
   const success = forceSuccess !== undefined ? forceSuccess : (isOk && status < 400);
   const latencyMs = startTime ? Math.round(performance.now() - startTime) : 0;
-  return { status, success, bodyPreview, latencyMs };
+  return { status, success, reached, bodyPreview, latencyMs };
+}
+
+function blueBlocked(blueResult) {
+  return !!blueResult?.reached && blueResult.success === false;
 }
 
 function safeJson(v) { try { return JSON.stringify(v); } catch { return String(v); } }
@@ -356,12 +377,12 @@ class AttackAgent {
     }
 
     const attackerPoint = result.red.success ? 1 : 0;
-    const defenderPoint = !result.blue.success ? 1 : 0;
+    const defenderPoint = blueBlocked(result.blue) ? 1 : 0;
     this.score.attacker += attackerPoint;
     this.score.defender += defenderPoint;
     this.score.total += 1;
     this.updateWeights(scenario.id, scenario.category, result.red.success);
-    this.updateCategoryBreakdown(scenario.category, result.red.success, !result.blue.success);
+    this.updateCategoryBreakdown(scenario.category, result.red.success, blueBlocked(result.blue));
 
     const narration = await this.narrate({ scenarioId: scenario.id, name: scenario.name, category: scenario.category, red: result.red, blue: result.blue, steps: result.steps }, scenario);
 
@@ -377,6 +398,7 @@ class AttackAgent {
       attackerPoint,
       defenderPoint,
       narration,
+      ttdMs: deriveTtdMs(result.steps || [{ red: result.red, blue: result.blue }]),
       score: { ...this.score },
       categoryBreakdown: JSON.parse(JSON.stringify(this.categoryBreakdown)),
     };
@@ -407,17 +429,17 @@ class AttackAgent {
     }
 
     const attackerPoint = result.red.success ? 1 : 0;
-    const defenderPoint = !result.blue.success ? 1 : 0;
+    const defenderPoint = blueBlocked(result.blue) ? 1 : 0;
     this.score.attacker += attackerPoint;
     this.score.defender += defenderPoint;
     this.score.total += 1;
     this.updateWeights(scenario.id, scenario.category, result.red.success);
-    this.updateCategoryBreakdown(scenario.category, result.red.success, !result.blue.success);
+    this.updateCategoryBreakdown(scenario.category, result.red.success, blueBlocked(result.blue));
 
     const narration = await this.narrate({ scenarioId: scenario.id, name: scenario.name, category: scenario.category, red: result.red, blue: result.blue, steps: result.steps }, scenario);
 
     const event = {
-      id: "MANUAL_" + Date.now(),
+      id: Date.now(),
       ts: new Date().toISOString(),
       scenarioId: scenario.id,
       name: "[MANUAL] " + scenario.name,
@@ -428,6 +450,7 @@ class AttackAgent {
       attackerPoint,
       defenderPoint,
       narration,
+      ttdMs: deriveTtdMs(result.steps || [{ red: result.red, blue: result.blue }]),
       score: { ...this.score },
       categoryBreakdown: JSON.parse(JSON.stringify(this.categoryBreakdown)),
     };
@@ -509,6 +532,122 @@ class AttackAgent {
           resolve({ totalFired: total, categories: rows, topAttacks });
         }
       );
+    });
+  }
+
+  getPrivPathMetrics() {
+    return new Promise((resolve, reject) => {
+      const db = getDB();
+      db.all('SELECT event_json FROM battle_events ORDER BY id DESC', [], (err, rows) => {
+        if (err) return reject(err);
+
+        const events = rows
+          .map((row) => { try { return JSON.parse(row.event_json); } catch { return null; } })
+          .filter(Boolean);
+
+        const byCategory = {};
+        const byControl = {};
+        const byScenario = {};
+        const attackDistribution = {};
+        const ttdSamples = [];
+
+        const ensureBucket = (map, key) => {
+          if (!map[key]) {
+            map[key] = {
+              total: 0,
+              redSuccess: 0,
+              blueBlocked: 0,
+              blueExploitable: 0,
+              attackPathReductionPct: 0,
+              attackSuccessRatePct: 0,
+              blockRatePct: 0,
+              avgTtdMs: 0,
+              ttdSamples: [],
+            };
+          }
+          return map[key];
+        };
+
+        for (const event of events) {
+          const category = event.category || "Other";
+          const scenarioId = event.scenarioId || "unknown";
+          const controls = SCENARIO_CONTROLS[scenarioId] || ["unmapped_control"];
+          const redSuccess = !!event.red?.success;
+          const blueSuccess = !!event.blue?.success;
+          const blueWasBlocked = event.blue?.reached === false ? false : (event.blue?.status === 500 && event.blue?.reached !== true ? false : !blueSuccess);
+          const ttdMs = Number(event.ttdMs || deriveTtdMs(event.steps || [])) || 0;
+
+          attackDistribution[scenarioId] = (attackDistribution[scenarioId] || 0) + 1;
+          if (ttdMs > 0) ttdSamples.push(ttdMs);
+
+          for (const bucket of [ensureBucket(byCategory, category), ensureBucket(byScenario, scenarioId)]) {
+            bucket.total += 1;
+            if (redSuccess) bucket.redSuccess += 1;
+            if (blueWasBlocked) bucket.blueBlocked += 1;
+            if (blueSuccess) bucket.blueExploitable += 1;
+            if (ttdMs > 0) bucket.ttdSamples.push(ttdMs);
+          }
+
+          for (const control of controls) {
+            const bucket = ensureBucket(byControl, control);
+            bucket.total += 1;
+            if (redSuccess) bucket.redSuccess += 1;
+            if (blueWasBlocked) bucket.blueBlocked += 1;
+            if (blueSuccess) bucket.blueExploitable += 1;
+            if (ttdMs > 0) bucket.ttdSamples.push(ttdMs);
+          }
+        }
+
+        const finalizeBuckets = (map) => Object.fromEntries(
+          Object.entries(map).map(([key, bucket]) => {
+            const total = bucket.total || 1;
+            const exploitableBaseline = bucket.redSuccess || 0;
+            const reduced = Math.max(0, exploitableBaseline - bucket.blueExploitable);
+            const avgTtdMs = bucket.ttdSamples.length
+              ? Math.round(bucket.ttdSamples.reduce((sum, value) => sum + value, 0) / bucket.ttdSamples.length)
+              : 0;
+
+            return [key, {
+              total: bucket.total,
+              redSuccess: bucket.redSuccess,
+              blueBlocked: bucket.blueBlocked,
+              blueExploitable: bucket.blueExploitable,
+              attackSuccessRatePct: Math.round((bucket.redSuccess / total) * 100),
+              blockRatePct: Math.round((bucket.blueBlocked / total) * 100),
+              attackPathReductionPct: exploitableBaseline > 0 ? Math.round((reduced / exploitableBaseline) * 100) : 0,
+              avgTtdMs,
+            }];
+          })
+        );
+
+        const total = events.length;
+        const redSuccess = events.filter((event) => event.red?.success).length;
+        const blueBlocked = events.filter((event) => event.blue?.reached === false ? false : (event.blue?.status === 500 && event.blue?.reached !== true ? false : !event.blue?.success)).length;
+        const blueExploitable = events.filter((event) => event.blue?.success).length;
+        const reduction = Math.max(0, redSuccess - blueExploitable);
+
+        resolve({
+          generatedAt: new Date().toISOString(),
+          totalEvents: total,
+          metrics: {
+            attackSuccessRatePct: total ? Math.round((redSuccess / total) * 100) : 0,
+            blockRatePct: total ? Math.round((blueBlocked / total) * 100) : 0,
+            attackPathReductionPct: redSuccess ? Math.round((reduction / redSuccess) * 100) : 0,
+            avgTtdMs: ttdSamples.length ? Math.round(ttdSamples.reduce((sum, value) => sum + value, 0) / ttdSamples.length) : 0,
+          },
+          byCategory: finalizeBuckets(byCategory),
+          byControl: finalizeBuckets(byControl),
+          byScenario: finalizeBuckets(byScenario),
+          attackDistribution,
+          scenarioCatalog: ALL_SCENARIOS.map((scenario) => ({
+            id: scenario.id,
+            name: scenario.name,
+            category: scenario.category,
+            controls: SCENARIO_CONTROLS[scenario.id] || [],
+            chained: CHAINED_SCENARIOS.some((candidate) => candidate.id === scenario.id),
+          })),
+        });
+      });
     });
   }
 }
