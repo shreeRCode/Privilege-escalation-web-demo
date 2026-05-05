@@ -151,7 +151,7 @@ export default function BattleDashboard() {
     return (
       <div className="page">
         <div className="page-header">
-          <div className="page-title">⚔️ LIVE <span>BATTLE</span></div>
+          <div className="page-title">⚔️ AUTO <span>BATTLE</span></div>
           <div className="page-subtitle">LOADING BATTLE DATA...</div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
@@ -224,10 +224,13 @@ export default function BattleDashboard() {
       <div className="page-header">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
-            <div className="page-title">⚔️ LIVE <span>BATTLE</span></div>
-            <div className="page-subtitle">REAL-TIME SECURITY OUTCOMES — RED VS BLUE</div>
+            <div className="page-title">⚔️ AUTO <span>BATTLE</span></div>
+            <div className="page-subtitle">AGENT ALICE — RED API VS BLUE API</div>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <span className="badge" style={{ background: "var(--red-faint)", border: "1px solid var(--border)", color: "var(--red)", fontSize: 10 }}>
+              AGENT USER: ALICE
+            </span>
             <select className="form-select" value={intervalMs} onChange={(e) => setSpeed(Number(e.target.value))} style={{ fontSize: 11, padding: "6px 10px" }}>
               <option value={120000}>2 min</option>
               <option value={60000}>1 min</option>
@@ -236,7 +239,7 @@ export default function BattleDashboard() {
             </select>
             {speedFlash && <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--green)", animation: "fadeOut 1.2s ease forwards" }}>✓ Updated</span>}
             <button className={running ? "btn btn-outline" : "btn btn-red"} onClick={toggleRunning} style={{ fontSize: 11 }}>
-              {running ? "⏸ PAUSE" : "▶ RESUME"}
+              {running ? "⏸ STOP AGENT" : "▶ START AGENT"}
             </button>
           </div>
         </div>
@@ -246,9 +249,9 @@ export default function BattleDashboard() {
 
       {/* Score Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(140px, 1fr))", gap: 16, marginBottom: 24 }}>
-        <div className="stat-card"><div className="stat-value" style={{ color: "var(--text)" }}>{totalAttacks}</div><div className="stat-label">TOTAL ATTACKS</div></div>
-        <div className="stat-card"><div className="stat-value" style={{ color: "var(--red)" }}>{exploitsSucceeded}</div><div className="stat-label">EXPLOITS SUCCEEDED (RED)</div></div>
-        <div className="stat-card"><div className="stat-value" style={{ color: "var(--green)" }}>{attacksBlocked}</div><div className="stat-label">ATTACKS BLOCKED (BLUE)</div></div>
+        <div className="stat-card"><div className="stat-value" style={{ color: "var(--text)" }}>{totalAttacks}</div><div className="stat-label">AGENT RUNS</div></div>
+        <div className="stat-card"><div className="stat-value" style={{ color: "var(--red)" }}>{exploitsSucceeded}</div><div className="stat-label">RED API ALLOWED</div></div>
+        <div className="stat-card"><div className="stat-value" style={{ color: "var(--green)" }}>{attacksBlocked}</div><div className="stat-label">BLUE API BLOCKED</div></div>
         <div className="stat-card"><div className="stat-value" style={{ color: blockRateColor(blueBlockRate), fontSize: 32 }}>{blueBlockRate}%</div><div className="stat-label">BLUE BLOCK RATE</div></div>
       </div>
 
@@ -368,7 +371,7 @@ export default function BattleDashboard() {
           <div style={{ textAlign: "center", padding: "40px 20px" }}>
             <div style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "var(--red)", animation: "battlePulse 1.4s ease-in-out infinite", marginRight: 8 }} />
             <span style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text-faint)" }}>
-              {running ? "Agent is initializing..." : "AGENT PAUSED"}
+              {running ? "AGENT ALICE IS RUNNING" : "AGENT STOPPED"}
             </span>
           </div>
         ) : (
